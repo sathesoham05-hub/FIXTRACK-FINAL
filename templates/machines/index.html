@@ -1,0 +1,195 @@
+
+{% extends "base.html" %}
+
+{% block title %}
+Machines | FixTrack
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+
+    <div>
+        <div class="eyebrow">
+            MACHINE MANAGEMENT
+        </div>
+
+        <h1>Machines</h1>
+
+        <p>
+            View and manage registered factory machines.
+        </p>
+    </div>
+
+    {% if session.get("role") == "admin" %}
+    <a
+        href="{{ url_for('machines.add_machine') }}"
+        class="btn btn-primary"
+    >
+        + Add Machine
+    </a>
+    {% endif %}
+
+</div>
+
+
+<div class="page-toolbar">
+
+    <div class="toolbar-info">
+        <span class="toolbar-dot"></span>
+        Machine Registry
+    </div>
+
+    <div class="toolbar-count">
+        {{ machines|length }}
+        machine{% if machines|length != 1 %}s{% endif %}
+    </div>
+
+</div>
+
+
+<div class="table-container">
+
+    <table>
+
+        <thead>
+            <tr>
+                <th>Machine</th>
+                <th>Department</th>
+                <th>Manufacturer</th>
+                <th>Model</th>
+                <th>Status</th>
+
+                {% if session.get("role") == "admin" %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% if machines %}
+
+                {% for machine in machines %}
+
+                <tr>
+
+                    <td>
+                        <div class="table-primary-text">
+                            {{ machine["machine_number"] }}
+                        </div>
+
+                        <div class="table-secondary-text">
+                            {{ machine["machine_name"] }}
+                        </div>
+                    </td>
+
+                    <td>
+                        {{ machine["department"] or "—" }}
+                    </td>
+
+                    <td>
+                        {{ machine["manufacturer"] or "—" }}
+                    </td>
+
+                    <td>
+                        {{ machine["model"] or "—" }}
+                    </td>
+
+                    <td>
+                        {% if machine["status"] == "Active" %}
+
+                        <span class="status-badge status-active">
+                            Active
+                        </span>
+
+                        {% else %}
+
+                        <span class="status-badge status-warning">
+                            {{ machine["status"] or "Unknown" }}
+                        </span>
+
+                        {% endif %}
+                    </td>
+
+                    {% if session.get("role") == "admin" %}
+
+                    <td>
+                        <div class="table-actions">
+
+                            <a
+                                href="{{ url_for('machines.edit_machine', machine_id=machine['id']) }}"
+                                class="action-link"
+                            >
+                                Edit
+                            </a>
+
+                            <form
+                                action="{{ url_for('machines.delete_machine', machine_id=machine['id']) }}"
+                                method="POST"
+                                style="display:inline;"
+                                onsubmit="return confirm('Delete this machine? Associated maintenance records may also be deleted.');"
+                            >
+                                <button
+                                    type="submit"
+                                    class="action-link danger"
+                                    style="background:none; border:none; cursor:pointer; font:inherit;"
+                                >
+                                    Delete
+                                </button>
+                            </form>
+
+                        </div>
+                    </td>
+
+                    {% endif %}
+
+                </tr>
+
+                {% endfor %}
+
+            {% else %}
+
+                <tr>
+                    <td
+                        colspan="{% if session.get('role') == 'admin' %}6{% else %}5{% endif %}"
+                        class="empty-table"
+                    >
+                        <div class="empty-state">
+
+                            <div class="empty-state-icon">
+                                ▣
+                            </div>
+
+                            <strong>
+                                No machines registered
+                            </strong>
+
+                            <span>
+                                No machine records are currently available.
+                            </span>
+
+                            {% if session.get("role") == "admin" %}
+
+                            <a
+                                href="{{ url_for('machines.add_machine') }}"
+                                class="btn btn-primary"
+                            >
+                                + Add Machine
+                            </a>
+
+                            {% endif %}
+
+                        </div>
+                    </td>
+                </tr>
+
+            {% endif %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

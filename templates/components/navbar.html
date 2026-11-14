@@ -1,0 +1,24 @@
+<header class="topbar">
+    <div class="mobile-brand">
+        <img class="mobile-company-logo" src="{{ url_for('static', filename='images/pradeep-polyflex-logo.png') }}" alt="Pradeep Polyflex logo">
+        <div class="mobile-brand-label"><strong>FIXTRACK</strong><span>Pradeep Polyflex</span></div>
+    </div>
+    <div class="topbar-search">
+        <span class="search-icon">⌕</span>
+        <input type="text" placeholder="Search anything..." id="globalSearch">
+        <kbd>Ctrl K</kbd>
+    </div>
+    <div class="topbar-actions">
+        <button class="icon-button" onclick="showToast('No new notifications')" title="Notifications">♧<span class="notification-dot"></span></button>
+        <div class="user-menu">
+            <div class="user-avatar">{{ session.get('username', 'U')[0] | upper }}</div>
+            <div class="user-details">
+                <strong>{{ session.get('username', 'User') }}</strong>
+                <span>{% if session.get('role') == 'admin' %}Administrator{% else %}User{% endif %}</span>
+            </div>
+            <form action="{{ url_for('auth.logout') }}" method="POST">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Logout</button>
+            </form>
+        </div>
+    </div>
+</header>

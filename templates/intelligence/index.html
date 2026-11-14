@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+
+{% block title %}Intelligence | FixTrack{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="eyebrow">FIXTRACK INTELLIGENCE</div>
+        <h1>Machine Health Analyzer</h1>
+        <p>
+            Explainable maintenance intelligence based on
+            historical service records.
+        </p>
+    </div>
+</div>
+
+<div class="intel-overview">
+
+    <div class="intel-stat">
+        <span class="intel-stat-label">HIGH ATTENTION</span>
+        <div class="intel-stat-value intel-red">
+            {{ counts.high }}
+        </div>
+        <span class="intel-stat-subtitle">
+            Review recommended
+        </span>
+    </div>
+
+    <div class="intel-stat">
+        <span class="intel-stat-label">MEDIUM ATTENTION</span>
+        <div class="intel-stat-value intel-yellow">
+            {{ counts.medium }}
+        </div>
+        <span class="intel-stat-subtitle">
+            Monitor maintenance patterns
+        </span>
+    </div>
+
+    <div class="intel-stat">
+        <span class="intel-stat-label">LOW ATTENTION</span>
+        <div class="intel-stat-value intel-green">
+            {{ counts.low }}
+        </div>
+        <span class="intel-stat-subtitle">
+            Lower recorded activity
+        </span>
+    </div>
+
+    <div class="intel-stat">
+        <span class="intel-stat-label">INSUFFICIENT DATA</span>
+        <div class="intel-stat-value">
+            {{ counts.unknown }}
+        </div>
+        <span class="intel-stat-subtitle">
+            No maintenance history
+        </span>
+    </div>
+
+</div>
+
+<div class="intel-panel">
+
+    <div class="intel-panel-header">
+        <div>
+            <div class="eyebrow">AUTOMATED INSIGHTS</div>
+            <h2>Priority Recommendations</h2>
+        </div>
+        <span class="intel-analysis-date">
+            Updated {{ analyzed_on }}
+        </span>
+    </div>
+
+    {% if priority_machines %}
+
+    <div class="intel-insights">
+
+        {% for machine in priority_machines %}
+
+        <div class="intel-insight-item">
+            <div class="intel-insight-icon">✦</div>
+
+            <div>
+                <strong>{{ machine.machine_number }}</strong>
+                <p>{{ machine.insight }}</p>
+            </div>
+
+            <span class="intel-score intel-score-high">
+                {{ machine.score }}/100
+            </span>
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+    {% else %}
+
+    <div class="intel-empty-message">
+        No machines currently meet the high-attention threshold.
+    </div>
+
+    {% endif %}
+
+</div>
+
+<div class="intel-panel">
+
+    <div class="intel-panel-header">
+        <div>
+            <div class="eyebrow">MACHINE ANALYSIS</div>
+            <h2>Attention Priority Ranking</h2>
+            <p class="intel-panel-description">
+                {{ total_machines }} machines analyzed
+            </p>
+        </div>
+    </div>
+
+    <div class="intel-filters">
+
+        <a href="{{ url_for('intelligence.intelligence', level='all') }}"
+            class="intel-filter {% if selected_filter == 'all' %}active{% endif %}">
+            All
+        </a>
+
+        <a href="{{ url_for('intelligence.intelligence', level='high') }}"
+            class="intel-filter {% if selected_filter == 'high' %}active{% endif %}">
+            High
+        </a>
+
+        <a href="{{ url_for('intelligence.intelligence', level='medium') }}"
+            class="intel-filter {% if selected_filter == 'medium' %}active{% endif %}">
+            Medium
+        </a>
+
+        <a href="{{ url_for('intelligence.intelligence', level='low') }}"
+            class="intel-filter {% if selected_filter == 'low' %}active{% endif %}">
+            Low
+        </a>
+
+        <a href="{{ url_for('intelligence.intelligence', level='unknown') }}"
+            class="intel-filter {% if selected_filter == 'unknown' %}active{% endif %}">
+            Insufficient Data
+        </a>
+
+    </div>
+
+    <div class="table-container intel-table-container">
+
+        <table class="intel-table">
+            <thead>
+                <tr>
+                    <th>Machine</th>
+                    <th>Department</th>
+                    <th>Maintenance</th>
+                    <th>Last 90 Days</th>
+                    <th>Last Maintenance</th>
+                    <th>Attention Score</th>
+                    <th>Priority</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for machine in machines %}
+
+                <tr>
+                    <td>
+                        <button type="button" class="intel-machine-link"
+                            onclick="openMachineInsight({{ machine.machine_id }})">
+                            {{ machine.machine_number }}
+                        </button>
+
+                        <div class="intel-machine-type">
+                            {{ machine.machine_name or "—" }}
+                        </div>
+                    </td>
+
+                    <td>{{ machine.department or "—" }}</td>
+
+                    <td>{{ machine.total }}</td>
+
+                    <td>{{ machine.recent_90 }}</td>
+
+                    <td>
+                        {{ machine.last_maintenance or "—" }}
+                    </td>
+
+                    <td>
+                        {% if machine.score is not none %}
+
+                        <div class="intel-score-cell">
+                            <span>{{ machine.score }}</span>
+
+                            <div class="intel-progress">
+                                <div class="intel-progress-fill {{ machine.level_class }}"
+                                    style="width: {{ machine.score }}%;">
+                                </div>
+                            </div>
+                        </div>
+
+                        {% else %}
+                        <span class="intel-muted">N/A</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <span class="intel-priority {{ machine.level_class }}">
+                            {{ machine.level }}
+                        </span>
+                    </td>
+                </tr>
+
+                {% else %}
+
+                <tr>
+                    <td colspan="7" class="intel-empty-message">
+                        No machines match this filter.
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+        </table>
+
+    </div>
+
+</div>
+
+<div class="intel-disclaimer">
+    <span>✦</span>
+    <p>
+        <strong>How this analysis works:</strong>
+        Attention scores are calculated from historical maintenance
+        frequency and recent activity. Scores indicate review priority,
+        not machine condition or probability of failure.
+        Machines without maintenance records are classified as
+        Insufficient Data.
+    </p>
+</div>
+
+<!-- MACHINE INSIGHT EXPLORER -->
+
+<div id="machineInsightModal" class="intel-modal-overlay" hidden>
+
+    <div class="intel-modal">
+
+        <div class="intel-modal-header">
+            <div>
+                <div class="eyebrow">MACHINE INTELLIGENCE</div>
+                <h2 id="insightMachineNumber">Machine Analysis</h2>
+            </div>
+
+            <button type="button" class="intel-modal-close" onclick="closeMachineInsight()" aria-label="Close">
+                &times;
+            </button>
+        </div>
+
+        <div class="intel-modal-body">
+
+            <div class="intel-modal-score">
+                <div>
+                    <span class="intel-modal-label">ATTENTION SCORE</span>
+                    <div id="insightScore" class="intel-modal-score-value">
+                        —
+                    </div>
+                </div>
+
+                <span id="insightPriority" class="intel-priority unknown">
+                    —
+                </span>
+            </div>
+
+            <div class="intel-modal-stats">
+
+                <div class="intel-modal-stat">
+                    <span>Total Maintenance</span>
+                    <strong id="insightTotal">0</strong>
+                </div>
+
+                <div class="intel-modal-stat">
+                    <span>Last 90 Days</span>
+                    <strong id="insightRecent90">0</strong>
+                </div>
+
+                <div class="intel-modal-stat">
+                    <span>Last 30 Days</span>
+                    <strong id="insightRecent30">0</strong>
+                </div>
+
+            </div>
+
+            <div class="intel-modal-details">
+                <div>
+                    <span>Machine Type</span>
+                    <strong id="insightMachineType">—</strong>
+                </div>
+
+                <div>
+                    <span>Department</span>
+                    <strong id="insightDepartment">—</strong>
+                </div>
+
+                <div>
+                    <span>Last Maintenance</span>
+                    <strong id="insightLastMaintenance">—</strong>
+                </div>
+            </div>
+
+            <div class="intel-modal-recommendation">
+                <div class="eyebrow">✦ AUTOMATED INSIGHT</div>
+                <p id="insightRecommendation"></p>
+            </div>
+
+            <p class="intel-modal-footnote">
+                This score reflects historical maintenance activity,
+                not the probability of machine failure.
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+    const machineInsightData = {{ machines | tojson }};
+
+    function openMachineInsight(machineId) {
+
+        const machine = machineInsightData.find(
+            item => item.machine_id === machineId
+        );
+
+        if (!machine) return;
+
+        document.getElementById("insightMachineNumber").textContent =
+            machine.machine_number;
+
+        document.getElementById("insightScore").textContent =
+            machine.score === null ? "N/A" : machine.score + "/100";
+
+        document.getElementById("insightTotal").textContent =
+            machine.total;
+
+        document.getElementById("insightRecent90").textContent =
+            machine.recent_90;
+
+        document.getElementById("insightRecent30").textContent =
+            machine.recent_30;
+
+        document.getElementById("insightMachineType").textContent =
+            machine.machine_name || "—";
+
+        document.getElementById("insightDepartment").textContent =
+            machine.department || "—";
+
+        document.getElementById("insightLastMaintenance").textContent =
+            machine.last_maintenance || "—";
+
+        document.getElementById("insightRecommendation").textContent =
+            machine.insight;
+
+        const priority = document.getElementById("insightPriority");
+
+        priority.textContent = machine.level;
+        priority.className = "intel-priority " + machine.level_class;
+
+        document.getElementById("machineInsightModal").hidden = false;
+
+        document.body.classList.add("intel-modal-open");
+    }
+
+
+    function closeMachineInsight() {
+
+        document.getElementById("machineInsightModal").hidden = true;
+
+        document.body.classList.remove("intel-modal-open");
+    }
+
+
+    document.getElementById("machineInsightModal").addEventListener(
+        "click",
+        function (event) {
+            if (event.target === this) {
+                closeMachineInsight();
+            }
+        }
+    );
+
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+            closeMachineInsight();
+        }
+    });
+</script>
+
+
+{% endblock %}

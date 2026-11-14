@@ -1,0 +1,28 @@
+# Environment variables and secrets
+.env
+.env.*
+.fixtrack-secret
+
+# Virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# SQLite temporary files
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Instance files
+instance/
+
+# Backups
+*BACKUP*/
+
+# Editor and system files
+.vscode/
+.DS_Store
+Thumbs.db

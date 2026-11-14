@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <h2>Maintenance Analytics</h2>
+
+    <!-- DATE RANGE FILTER -->
+
+    <form method="GET"
+          action="{{ url_for('dashboard.analytics') }}"
+          class="date-filter">
+
+        <label for="period">Date Range:</label>
+
+        <select name="period" id="period" onchange="toggleCustomDates()">
+
+            <option value="30days" {% if period == '30days' %}selected{% endif %}>
+                Last 30 Days
+            </option>
+
+            <option value="3months" {% if period == '3months' %}selected{% endif %}>
+                Last 3 Months
+            </option>
+
+            <option value="6months" {% if period == '6months' %}selected{% endif %}>
+                Last 6 Months
+            </option>
+
+            <option value="12months" {% if period == '12months' %}selected{% endif %}>
+                Last 12 Months
+            </option>
+
+            <option value="custom" {% if period == 'custom' %}selected{% endif %}>
+                Custom Range
+            </option>
+
+        </select>
+
+        <div id="customDates" style="display: none;">
+
+            <label for="start_date">From:</label>
+            <input type="date"
+                   id="start_date"
+                   name="start_date"
+                   value="{{ start_date }}">
+
+            <label for="end_date">To:</label>
+            <input type="date"
+                   id="end_date"
+                   name="end_date"
+                   value="{{ end_date }}">
+
+            <button type="submit">Apply</button>
+
+        </div>
+
+        <button type="submit" id="filterButton">
+            Apply Filter
+        </button>
+
+    </form>
+
+
+    <!-- SUMMARY CARDS -->
+
+    <div class="analytics-summary">
+
+        <div class="summary-card machines-card">
+            <div class="summary-top">
+                <p>Total Machines</p>
+                <span class="summary-icon">▦</span>
+            </div>
+            <h3>{{ total_machines }}</h3>
+            <small>Machines registered in the system</small>
+        </div>
+
+        <div class="summary-card active-card">
+            <div class="summary-top">
+                <p>Active Machines</p>
+                <span class="summary-icon">✓</span>
+            </div>
+            <h3>{{ active_machines }}</h3>
+            <small>Currently active machines</small>
+        </div>
+
+        <div class="summary-card maintenance-card">
+            <div class="summary-top">
+                <p>Total Maintenance</p>
+                <span class="summary-icon">⚙</span>
+            </div>
+            <h3>{{ total_maintenance }}</h3>
+            <small>Maintenance in selected period</small>
+        </div>
+
+        <div class="summary-card inactive-card">
+            <div class="summary-top">
+                <p>No Recorded Maintenance</p>
+                <span class="summary-icon">!</span>
+            </div>
+            <h3>{{ machines_without_maintenance }}</h3>
+            <small>No maintenance in selected period</small>
+        </div>
+
+    </div>
+
+
+    <!-- OVERALL MONTHLY MAINTENANCE -->
+
+    <h4>Overall Monthly Maintenance</h4>
+
+    <canvas id="monthlyChart"></canvas>
+
+
+    <!-- MACHINE-WISE COMPARISON -->
+
+    <h4>Machine-wise Maintenance Comparison</h4>
+
+    <canvas id="machineChart"></canvas>
+
+
+    <!-- INDIVIDUAL MACHINE ANALYTICS -->
+
+    <h4>Individual Machine Maintenance History</h4>
+
+    <select id="machineSelect">
+
+        <option value="">Select a Machine</option>
+
+        {% for machine in machine_data %}
+
+            <option value="{{ url_for('dashboard.machine_analytics', machine_id=machine.id) }}">
+                {{ machine.machine_number }} - {{ machine.machine_name }}
+            </option>
+
+        {% endfor %}
+
+    </select>
+
+    <canvas id="individualMachineChart"></canvas>
+
+</div>
+
+
+<!-- CHART.JS -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<script>
+
+// DATE FILTER DISPLAY
+
+function toggleCustomDates() {
+
+    const period = document.getElementById('period').value;
+
+    const customDates = document.getElementById('customDates');
+
+    const filterButton = document.getElementById('filterButton');
+
+    if (period === 'custom') {
+
+        customDates.style.display = 'block';
+        filterButton.style.display = 'none';
+
+    } else {
+
+        customDates.style.display = 'none';
+        filterButton.style.display = 'inline-block';
+
+    }
+
+}
+
+toggleCustomDates();
+
+
+// DATA FROM FLASK
+
+const monthlyData = JSON.parse('{{ monthly_data | tojson | safe }}');
+const machineData = JSON.parse('{{ machine_data | tojson | safe }}');
+
+// 1. OVERALL MONTHLY MAINTENANCE GRAPH
+
+const monthlyLabels = Object.keys(monthlyData);
+const monthlyValues = Object.values(monthlyData);
+
+new Chart(document.getElementById('monthlyChart'), {
+
+    type: 'line',
+
+    data: {
+        labels: monthlyLabels,
+
+        datasets: [{
+            label: 'Maintenance Activities',
+            data: monthlyValues,
+            borderWidth: 2,
+            tension: 0.3
+        }]
+    },
+
+    options: {
+        responsive: true
+    }
+
+});
+
+
+// 2. MACHINE-WISE COMPARISON GRAPH
+
+new Chart(document.getElementById('machineChart'), {
+
+    type: 'bar',
+
+    data: {
+
+        labels: machineData.map(machine => machine.machine_number),
+
+        datasets: [{
+            label: 'Total Maintenance',
+            data: machineData.map(machine => machine.total),
+            borderWidth: 1
+        }]
+
+    },
+
+    options: {
+        responsive: true
+    }
+
+});
+
+
+// 3. INDIVIDUAL MACHINE MONTHLY GRAPH
+
+const individualChart = new Chart(
+    document.getElementById('individualMachineChart'),
+    {
+
+        type: 'line',
+
+        data: {
+
+            labels: [],
+
+            datasets: [{
+                label: 'Monthly Maintenance',
+                data: [],
+                borderWidth: 2,
+                tension: 0.3
+            }]
+
+        },
+
+        options: {
+            responsive: true
+        }
+
+    }
+);
+
+
+// UPDATE GRAPH WHEN A MACHINE IS SELECTED
+
+document.getElementById('machineSelect').addEventListener('change', function () {
+
+    const machineUrl = this.value;
+
+    if (!machineUrl) {
+
+        individualChart.data.labels = [];
+        individualChart.data.datasets[0].data = [];
+
+        individualChart.update();
+
+        return;
+    }
+
+    fetch(machineUrl + window.location.search)
+
+        .then(response => {
+
+            if (!response.ok) {
+                throw new Error('Failed to load machine analytics');
+            }
+
+            return response.json();
+
+        })
+
+        .then(data => {
+
+            individualChart.data.labels = Object.keys(data);
+
+            individualChart.data.datasets[0].data = Object.values(data);
+
+            individualChart.update();
+
+        })
+
+        .catch(error => {
+
+            console.error('Individual machine graph error:', error);
+
+        });
+
+});
+
+</script>
+
+{% endblock %}

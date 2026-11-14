@@ -1,0 +1,249 @@
+<!-- FIXTRACK FLOATING COPILOT V1.1 -->
+
+<div id="ftCopilotWidget" class="ft-copilot-widget">
+
+    <!-- Floating launcher -->
+    <button id="ftCopilotToggle" class="ft-copilot-launcher" type="button" aria-label="Open FixTrack Copilot"
+        aria-expanded="false" aria-controls="ftCopilotPanel">
+        <span id="ftCopilotLauncherIcon">✦</span>
+    </button>
+
+    <!-- Chat popup -->
+    <section id="ftCopilotPanel" class="ft-copilot-panel" role="dialog" aria-label="FixTrack Copilot" hidden>
+
+        <div class="ft-copilot-header">
+            <div class="ft-copilot-brand">
+                <div class="ft-copilot-avatar">✦</div>
+                <div>
+                    <strong>FixTrack Copilot</strong>
+                    <small>Offline Database Assistant</small>
+                </div>
+            </div>
+
+            <button id="ftCopilotClose" type="button" class="ft-copilot-close" aria-label="Close Copilot">
+                &times;
+            </button>
+        </div>
+
+        <div id="ftCopilotMessages" class="ft-copilot-messages" role="log" aria-live="polite">
+            <div class="ft-copilot-message assistant">
+                <div class="ft-copilot-bubble">
+                    <strong>Hello! I'm FixTrack Copilot.</strong>
+                    <p>
+                        Ask me about your machines, spare parts,
+                        maintenance records or factory operations.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="ft-copilot-footer">
+
+            <div class="ft-copilot-suggestions">
+                <button type="button" data-question="Give me a factory overview">
+                    Factory Overview
+                </button>
+
+                <button type="button" data-question="Which spare parts are low on stock?">
+                    Low Stock
+                </button>
+
+                <button type="button" data-question="Which machines need attention?">
+                    Machine Attention
+                </button>
+
+                <button type="button" data-question="What are the most consumed spare parts?">
+                    Consumption
+                </button>
+
+                <button type="button" data-question="Show maintenance history for FLEXO-001">
+                    Machine History
+                </button>
+                
+                <button type="button" data-question="Check stock for SP-001">
+                    Part Stock
+                </button>
+
+            </div>
+
+            <form id="ftCopilotForm" class="ft-copilot-form">
+                <input id="ftCopilotInput" type="text" maxlength="300" placeholder="Ask FixTrack Copilot..."
+                    autocomplete="off" aria-label="Ask FixTrack Copilot" required>
+
+                <button id="ftCopilotSend" type="submit" aria-label="Send message">
+                    ↗
+                </button>
+            </form>
+
+            <div class="ft-copilot-disclaimer">
+                Database-powered · Offline · Rule-based
+            </div>
+
+        </div>
+    </section>
+</div>
+
+<script>
+    (function () {
+        const toggle = document.getElementById("ftCopilotToggle");
+        const panel = document.getElementById("ftCopilotPanel");
+        const closeButton = document.getElementById("ftCopilotClose");
+        const launcherIcon = document.getElementById("ftCopilotLauncherIcon");
+        const messages = document.getElementById("ftCopilotMessages");
+        const form = document.getElementById("ftCopilotForm");
+        const input = document.getElementById("ftCopilotInput");
+        const sendButton = document.getElementById("ftCopilotSend");
+
+        const askUrl = {{ url_for('copilot.ask_copilot') | tojson
+    }};
+
+    let busy = false;
+
+    function setOpen(open) {
+        panel.hidden = !open;
+        toggle.setAttribute("aria-expanded", String(open));
+        toggle.setAttribute(
+            "aria-label",
+            open ? "Close FixTrack Copilot" : "Open FixTrack Copilot"
+        );
+        launcherIcon.textContent = open ? "×" : "✦";
+
+        if (open) {
+            input.focus();
+            messages.scrollTop = messages.scrollHeight;
+        } else {
+            toggle.focus();
+        }
+    }
+
+    toggle.addEventListener("click", function () {
+        setOpen(panel.hidden);
+    });
+
+    closeButton.addEventListener("click", function () {
+        setOpen(false);
+    });
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !panel.hidden) {
+            setOpen(false);
+        }
+    });
+
+    function addMessage(role, title, text, rows = []) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "ft-copilot-message " + role;
+
+        const bubble = document.createElement("div");
+        bubble.className = "ft-copilot-bubble";
+
+        if (title) {
+            const heading = document.createElement("strong");
+            heading.textContent = title;
+            bubble.appendChild(heading);
+        }
+
+        const paragraph = document.createElement("p");
+        paragraph.textContent = text;
+        bubble.appendChild(paragraph);
+
+        if (rows.length) {
+            const list = document.createElement("ul");
+
+            rows.forEach(function (row) {
+                const item = document.createElement("li");
+                item.textContent = row;
+                list.appendChild(item);
+            });
+
+            bubble.appendChild(list);
+        }
+
+        wrapper.appendChild(bubble);
+        messages.appendChild(wrapper);
+
+        messages.scrollTop = messages.scrollHeight;
+
+        return wrapper;
+    }
+
+    async function askQuestion(question) {
+        question = question.trim();
+
+        if (!question || busy) return;
+
+        busy = true;
+        input.disabled = true;
+        sendButton.disabled = true;
+
+        addMessage("user", "", question);
+
+        const loading = addMessage(
+            "assistant",
+            "",
+            "Analyzing FixTrack data..."
+        );
+
+        try {
+            const response = await fetch(askUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ question: question })
+            });
+
+            const data = await response.json();
+
+            loading.remove();
+
+            if (!response.ok) {
+                addMessage(
+                    "assistant",
+                    "Unable to answer",
+                    data.error || "Something went wrong."
+                );
+            } else {
+                addMessage(
+                    "assistant",
+                    data.title,
+                    data.message,
+                    data.rows || []
+                );
+            }
+
+        } catch (error) {
+            loading.remove();
+
+            addMessage(
+                "assistant",
+                "Connection Error",
+                "Unable to connect to the FixTrack server."
+            );
+        } finally {
+            busy = false;
+            input.disabled = false;
+            sendButton.disabled = false;
+
+            if (!panel.hidden) input.focus();
+        }
+    }
+
+    form.addEventListener("submit", function (event) {
+        event.preventDefault();
+
+        const question = input.value;
+        input.value = "";
+
+        askQuestion(question);
+    });
+
+    document.querySelectorAll(
+        "#ftCopilotWidget [data-question]"
+    ).forEach(function (button) {
+        button.addEventListener("click", function () {
+            askQuestion(button.dataset.question);
+        });
+    });
+}) ();
+</script>

@@ -1,0 +1,205 @@
+
+{% extends "base.html" %}
+
+{% block title %}Copilot | FixTrack{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="eyebrow">FIXTRACK INTELLIGENCE</div>
+        <h1>FixTrack Copilot</h1>
+        <p>Ask questions about your factory operations.</p>
+    </div>
+</div>
+
+<div class="copilot-shell">
+
+    <div class="copilot-header">
+        <div class="copilot-avatar">✦</div>
+        <div>
+            <strong>FixTrack Copilot</strong>
+            <span>Offline Database Assistant</span>
+        </div>
+        <div class="copilot-online">
+            <span class="status-dot"></span>
+            Ready
+        </div>
+    </div>
+
+    <div id="copilotMessages" class="copilot-messages"
+         role="log" aria-live="polite">
+
+        <div class="copilot-message assistant">
+            <div class="copilot-bubble">
+                <strong>Welcome to FixTrack Copilot</strong>
+                <p>
+                    I can analyze your machines, inventory and
+                    maintenance records using your local database.
+                    What would you like to know?
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="copilot-bottom">
+
+        <div class="copilot-suggestions">
+            {% for question in suggestions %}
+            <button type="button"
+                    class="copilot-suggestion"
+                    data-question="{{ question }}">
+                {{ question }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <form id="copilotForm" class="copilot-input-area">
+            <input
+                id="copilotInput"
+                type="text"
+                maxlength="300"
+                autocomplete="off"
+                placeholder="Ask about machines, inventory, maintenance..."
+                required
+            >
+            <button type="submit" id="copilotSend">
+                Send ↗
+            </button>
+        </form>
+
+        <div class="copilot-footnote">
+            Powered by local SQLite data and rule-based query matching.
+            No external AI service.
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+const messages = document.getElementById("copilotMessages");
+const form = document.getElementById("copilotForm");
+const input = document.getElementById("copilotInput");
+const sendButton = document.getElementById("copilotSend");
+
+let busy = false;
+
+function addMessage(role, title, message, rows = []) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "copilot-message " + role;
+
+    const bubble = document.createElement("div");
+    bubble.className = "copilot-bubble";
+
+    if (title) {
+        const heading = document.createElement("strong");
+        heading.textContent = title;
+        bubble.appendChild(heading);
+    }
+
+    const paragraph = document.createElement("p");
+    paragraph.textContent = message;
+    bubble.appendChild(paragraph);
+
+    if (rows.length) {
+        const list = document.createElement("ul");
+        list.className = "copilot-result-list";
+
+        rows.forEach(row => {
+            const item = document.createElement("li");
+            item.textContent = row;
+            list.appendChild(item);
+        });
+
+        bubble.appendChild(list);
+    }
+
+    wrapper.appendChild(bubble);
+    messages.appendChild(wrapper);
+
+    messages.scrollTop = messages.scrollHeight;
+    return wrapper;
+}
+
+async function askQuestion(question) {
+    question = question.trim();
+
+    if (!question || busy) return;
+
+    busy = true;
+    sendButton.disabled = true;
+    input.disabled = true;
+
+    addMessage("user", "", question);
+
+    const loading = addMessage(
+        "assistant", "", "Analyzing FixTrack data..."
+    );
+
+    try {
+        const response = await fetch(
+            "{{ url_for('copilot.ask_copilot') }}",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ question })
+            }
+        );
+
+        const data = await response.json();
+
+        loading.remove();
+
+        if (!response.ok) {
+            addMessage(
+                "assistant", "Unable to answer",
+                data.error || "Something went wrong."
+            );
+        } else {
+            addMessage(
+                "assistant",
+                data.title,
+                data.message,
+                data.rows || []
+            );
+        }
+
+    } catch (error) {
+        loading.remove();
+
+        addMessage(
+            "assistant",
+            "Connection Error",
+            "Could not connect to the local FixTrack server."
+        );
+    } finally {
+        busy = false;
+        sendButton.disabled = false;
+        input.disabled = false;
+        input.focus();
+    }
+}
+
+form.addEventListener("submit", function(event) {
+    event.preventDefault();
+
+    const question = input.value;
+    input.value = "";
+
+    askQuestion(question);
+});
+
+document.querySelectorAll(".copilot-suggestion").forEach(
+    button => {
+        button.addEventListener("click", function() {
+            askQuestion(this.dataset.question);
+        });
+    }
+);
+</script>
+
+{% endblock %}
